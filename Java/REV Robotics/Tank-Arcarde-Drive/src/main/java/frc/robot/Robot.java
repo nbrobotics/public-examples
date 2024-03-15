@@ -34,32 +34,18 @@ public class Robot extends TimedRobot {
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
+  private DifferentialDrive m_robotDrive;
+  private Joystick js_Driver;
+
   // Define and assign motors
-  private int leftLeadDeviceID = 3, leftFollowDeviceID = 1, rightLeadDeviceID =
-    4, rightFollowDeviceID = 2;
-
-  private final CANSparkMax m_leftFollowMotor = new CANSparkMax(
-    leftFollowDeviceID,
-    MotorType.kBrushed
-  );
-  private final CANSparkMax m_leftLeadMotor = new CANSparkMax(
-    leftLeadDeviceID,
-    MotorType.kBrushed
-  );
-  private final CANSparkMax m_rightFollowMotor = new CANSparkMax(
-    rightFollowDeviceID,
-    MotorType.kBrushed
-  );
-  private final CANSparkMax m_rightLeadMotor = new CANSparkMax(
-    rightLeadDeviceID,
-    MotorType.kBrushed
-  );
-
-  private DifferentialDrive m_robotDrive = new DifferentialDrive(
-    m_leftLeadMotor::set,
-    m_rightLeadMotor::set
-  );
-  private Joystick js_Driver = new Joystick(0);
+  private static final int leftLeadDeviceID = 3;
+  private static final int leftFollowDeviceID = 1;
+  private static final int rightLeadDeviceID = 4;
+  private static final int rightFollowDeviceID = 2;
+  private CANSparkMax m_leftFollowMotor;
+  private CANSparkMax m_leftLeadMotor;
+  private CANSparkMax m_rightFollowMotor;
+  private CANSparkMax m_rightLeadMotor;
 
   Timer timer = new Timer();
 
@@ -73,8 +59,26 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
 
+    m_leftFollowMotor = new CANSparkMax(leftFollowDeviceID, MotorType.kBrushed);
+    m_leftLeadMotor = new CANSparkMax(leftLeadDeviceID, MotorType.kBrushed);
+    m_rightFollowMotor =
+      new CANSparkMax(rightFollowDeviceID, MotorType.kBrushed);
+    m_rightLeadMotor = new CANSparkMax(rightLeadDeviceID, MotorType.kBrushed);
+
+    m_leftFollowMotor.setInverted(true);
+    m_leftLeadMotor.setInverted(true);
+    m_rightLeadMotor.setInverted(false);
+    m_rightLeadMotor.setInverted(false);
+
+    //region Set up Followers
+    // This should go in robotIni typically but as we have a testPeriodic to test wheel direction we don't want to have followers setup at the moment
     m_leftFollowMotor.follow(m_leftLeadMotor);
     m_rightFollowMotor.follow(m_rightLeadMotor);
+    //endregion Set up Followers
+
+    m_robotDrive = new DifferentialDrive(m_leftLeadMotor, m_rightLeadMotor);
+
+    js_Driver = new Joystick(0);
   }
 
   /**
@@ -134,19 +138,13 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    // Only use one of the two and double check the axis you want to use within the Driver Station application
-
-    // Tank Drive, which controls the left and right side independently
-    // Tank Drive - Logitech F310 Controller in D Switch Mode
-    // m_robotDrive.tankDrive(js_Driver.getRawAxis(1), js_Driver.getRawAxis(3));
-    // Tank Drive - Logitech F310 Controller in X Switch Mode
-    // m_robotDrive.tankDrive(js_Driver.getRawAxis(1), js_Driver.getRawAxis(5));
-    // Tank Drive - XBox Controller
-    // m_robotDrive.tankDrive(js_Driver.getRawAxis(1), js_Driver.getRawAxis(5));
-
     // Arcade Drive, which controls a forward and turn speed
     // Arcade Drive - Logitech F310 Controller in D Switch Mode
-    m_robotDrive.arcadeDrive(-js_Driver.getY(), -js_Driver.getZ());
+    // m_robotDrive.arcadeDrive(-js_Driver.getY(), -js_Driver.getZ());
+    m_robotDrive.arcadeDrive(
+      -js_Driver.getRawAxis(1),
+      -js_Driver.getRawAxis(2)
+    );
     // Arcade Drive - Logitech F310 Controller in X Switch Mode
     // m_robotDrive.arcadeDrive(js_Driver.getRawAxis(1), js_Driver.getRawAxis(4));
     // Arcade Drive - XBox Controller
@@ -163,11 +161,53 @@ public class Robot extends TimedRobot {
 
   /** This function is called once when test mode is enabled. */
   @Override
-  public void testInit() {}
+  public void testInit() {
+    /**
+     * The RestoreFactoryDefaults method can be used to reset the configuration parameters
+     * in the SPARK MAX to their factory default state. If no argument is passed, these
+     * parameters will not persist between power cycles
+     */
+    m_leftLeadMotor.restoreFactoryDefaults();
+    m_leftFollowMotor.restoreFactoryDefaults();
+    m_rightLeadMotor.restoreFactoryDefaults();
+    m_rightFollowMotor.restoreFactoryDefaults();
+
+    m_leftFollowMotor.setInverted(true);
+    m_leftLeadMotor.setInverted(true);
+    m_rightLeadMotor.setInverted(false);
+    m_rightLeadMotor.setInverted(false);
+  }
 
   /** This function is called periodically during test mode. */
   @Override
-  public void testPeriodic() {}
+  public void testPeriodic() {
+    //region Test Wheel Direction
+    if (js_Driver.getRawButton(1)) {
+      // X Button
+      m_leftLeadMotor.set(0.2);
+    } else {
+      m_leftLeadMotor.set(0);
+    }
+    if (js_Driver.getRawButton(2)) {
+      // A Button
+      m_leftFollowMotor.set(0.2);
+    } else {
+      m_leftFollowMotor.set(0);
+    }
+    if (js_Driver.getRawButton(3)) {
+      // B Button
+      m_rightLeadMotor.set(0.2);
+    } else {
+      m_rightLeadMotor.set(0);
+    }
+    if (js_Driver.getRawButton(4)) {
+      // Y Button
+      m_rightFollowMotor.set(0.2);
+    } else {
+      m_rightFollowMotor.set(0);
+    }
+    //endregion Test Wheel Direction
+  }
 
   /** This function is called once when the robot is first started up. */
   @Override
