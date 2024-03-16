@@ -27,26 +27,30 @@
 class Robot : public frc::TimedRobot
 {
   frc::SendableChooser<std::string> m_chooser;
-  // frc::WPI_TalonSRX  m_leftMotor{0};
-  WPI_VictorSPX m_leftMotor{11};
-  WPI_VictorSPX m_rightMotor{7};
+
+  WPI_VictorSPX m_leftFollowMotor{12};
+  WPI_VictorSPX m_leftLeadMotor{11};
+  WPI_VictorSPX m_rightFollowMotor{9};
+  WPI_VictorSPX m_rightLeadMotor{7};
+  // WPI_TalonSRX m_leftFollowMotor{12};
+  // WPI_TalonSRX m_leftLeadMotor{11};
+  // WPI_TalonSRX m_rightFollowMotor{9};
+  // WPI_TalonSRX m_rightLeadMotor{7};
+
   frc::DifferentialDrive m_robotDrive{
       [&](double output)
-      { m_leftMotor.Set(output); },
+      { m_leftLeadMotor.Set(output); },
       [&](double output)
-      { m_rightMotor.Set(output); }};
-  frc::Joystick m_stick{0};
-
+      { m_rightLeadMotor.Set(output); }};
   frc::Joystick js_Driver{0};
   std::string m_autoSelected;
 
 public:
   Robot()
   {
-    wpi::SendableRegistry::AddChild(&m_robotDrive, &m_leftMotor);
-    wpi::SendableRegistry::AddChild(&m_robotDrive, &m_rightMotor);
+    wpi::SendableRegistry::AddChild(&m_robotDrive, &m_leftLeadMotor);
+    wpi::SendableRegistry::AddChild(&m_robotDrive, &m_rightLeadMotor);
   }
-
   void RobotInit() override
   {
     m_chooser.SetDefaultOption("Default", "Default");
@@ -55,7 +59,14 @@ public:
     // We need to invert one side of the drivetrain so that positive voltages
     // result in both sides moving forward. Depending on how your robot's
     // gearbox is constructed, you might have to invert the left side instead.
-    m_rightMotor.SetInverted(true);
+    m_rightLeadMotor.SetInverted(true);
+    m_rightFollowMotor.SetInverted(true);
+    m_leftLeadMotor.SetInverted(false);
+    m_leftFollowMotor.SetInverted(false);
+
+    /* set up followers */
+    m_rightFollowMotor.Follow(m_rightLeadMotor);
+    m_leftFollowMotor.Follow(m_leftLeadMotor);
   }
 
   /**
@@ -118,6 +129,54 @@ public:
   {
     // Drive with arcade style
     m_robotDrive.ArcadeDrive(-js_Driver.GetY(), -js_Driver.GetZ());
+  }
+
+  void TestInit() override
+  {
+    /* factory default values */
+    m_leftLeadMotor.ConfigFactoryDefault();
+    m_leftFollowMotor.ConfigFactoryDefault();
+    m_rightLeadMotor.ConfigFactoryDefault();
+    m_rightFollowMotor.ConfigFactoryDefault();
+  }
+
+  void TestPeriodic() override
+  {
+    if (js_Driver.GetRawButton(1))
+    {
+      m_leftLeadMotor.Set(0.5);
+    }
+    else
+    {
+      m_leftLeadMotor.Set(0);
+    }
+
+    if (js_Driver.GetRawButton(2))
+    {
+      m_leftFollowMotor.Set(0.5);
+    }
+    else
+    {
+      m_leftFollowMotor.Set(0);
+    }
+
+    if (js_Driver.GetRawButton(3))
+    {
+      m_rightLeadMotor.Set(0.5);
+    }
+    else
+    {
+      m_rightLeadMotor.Set(0);
+    }
+
+    if (js_Driver.GetRawButton(4))
+    {
+      m_rightFollowMotor.Set(0.5);
+    }
+    else
+    {
+      m_rightFollowMotor.Set(0);
+    }
   }
 };
 
