@@ -4,6 +4,8 @@
 
 package frc.robot;
 
+// This example is based on https://github.com/CrossTheRoadElec/Phoenix5-Examples/tree/master/Java%20General/DifferentialDrive
+
 // CTRE
 //    If you use TalonSRX or VictorSPX you will need version 5, if do not you should be good with version 6. When in doubt you could load both.
 //    Version 6 - https://maven.ctr-electronics.com/release/com/ctre/phoenix6/latest/Phoenix6-frc2024-latest.json
@@ -12,8 +14,11 @@ package frc.robot;
 // Rev Robotics - https://software-metadata.revrobotics.com/REVLib-2024.json
 // Venom - https://www.playingwithfusion.com/frc/playingwithfusion2024.json
 
-import com.revrobotics.CANSparkLowLevel.MotorType;
-import com.revrobotics.CANSparkMax;
+import com.ctre.phoenix.motorcontrol.InvertType;
+import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
+import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
+// import com.ctre.phoenix.motorcontrol.can.WPI_TalonSPX;
+import edu.wpi.first.util.sendable.SendableRegistry;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
@@ -22,10 +27,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 /**
- * The VM is configured to automatically run this class, and to call the functions corresponding to
- * each mode, as described in the TimedRobot documentation. If you change the name of this class or
- * the package after creating this project, you must also update the build.gradle file in the
- * project.
+ * This is a demo program showing the use of the DifferentialDrive class. Runs the motors with
+ * arcade steering.
  */
 public class Robot extends TimedRobot {
 
@@ -36,16 +39,18 @@ public class Robot extends TimedRobot {
 
   private DifferentialDrive m_robotDrive;
   private Joystick js_Driver;
-
-  // Define and assign motors
-  private static final int leftLeadDeviceID = 3;
-  private static final int leftFollowDeviceID = 1;
-  private static final int rightLeadDeviceID = 4;
-  private static final int rightFollowDeviceID = 2;
-  private CANSparkMax m_leftFollowMotor;
-  private CANSparkMax m_leftLeadMotor;
-  private CANSparkMax m_rightFollowMotor;
-  private CANSparkMax m_rightLeadMotor;
+  private static final int leftLeadDeviceID = 11;
+  private static final int leftFollowDeviceID = 12;
+  private static final int rightLeadDeviceID = 7;
+  private static final int rightFollowDeviceID = 9;
+  WPI_VictorSPX m_leftFollowMotor;
+  WPI_VictorSPX m_leftLeadMotor;
+  WPI_VictorSPX m_rightFollowMotor;
+  WPI_VictorSPX m_rightLeadMotor;
+  // WPI_TalonSRX m_leftFollowMotor;
+  // WPI_TalonSRX m_leftLeadMotor;
+  // WPI_TalonSRX m_rightFollowMotor;
+  // WPI_TalonSRX m_rightLeadMotor;
 
   Timer timer = new Timer();
 
@@ -59,21 +64,35 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
 
-    m_leftFollowMotor = new CANSparkMax(leftFollowDeviceID, MotorType.kBrushed);
-    m_leftLeadMotor = new CANSparkMax(leftLeadDeviceID, MotorType.kBrushed);
-    m_rightFollowMotor =
-      new CANSparkMax(rightFollowDeviceID, MotorType.kBrushed);
-    m_rightLeadMotor = new CANSparkMax(rightLeadDeviceID, MotorType.kBrushed);
+    // If you have Talons instead of Victor make sure to uncomment as needed.
+    m_leftFollowMotor = new WPI_VictorSPX(leftFollowDeviceID);
+    m_leftLeadMotor = new WPI_VictorSPX(leftLeadDeviceID);
+    m_rightFollowMotor = new WPI_VictorSPX(rightFollowDeviceID);
+    m_rightLeadMotor = new WPI_VictorSPX(rightLeadDeviceID);
+    // m_leftFollowMotor = new WPI_TalonSRX(leftFollowDeviceID);
+    // m_leftLeadMotor = new WPI_TalonSRX(leftLeadDeviceID);
+    // m_rightFollowMotor = new WPI_TalonSRX(rightFollowDeviceID);
+    // m_rightLeadMotor = new WPI_TalonSRX(rightLeadDeviceID);
 
-    m_leftFollowMotor.setInverted(true);
-    m_leftLeadMotor.setInverted(true);
-    m_rightLeadMotor.setInverted(false);
-    m_rightLeadMotor.setInverted(false);
+    /* factory default values */
+    // m_rightLeadMotor.configFactoryDefault();
+    //   m_rightFollowMotor.configFactoryDefault();
+    //  m_leftLeadMotor.configFactoryDefault();
+    //  m_leftFollowMotor.configFactoryDefault();
 
-    //region Set up Followers
-    m_leftFollowMotor.follow(m_leftLeadMotor);
+    /* set up followers */
     m_rightFollowMotor.follow(m_rightLeadMotor);
-    //endregion Set up Followers
+    m_leftFollowMotor.follow(m_leftLeadMotor);
+
+    /* [3] flip values so robot moves forward when stick-forward/LEDs-green */
+    m_rightLeadMotor.setInverted(true); // !< Update this
+    m_leftLeadMotor.setInverted(false); // !< Update this
+
+    /*
+     * set the invert of the followers to match their respective master controllers
+     */
+    m_rightFollowMotor.setInverted(InvertType.FollowMaster);
+    m_leftFollowMotor.setInverted(InvertType.FollowMaster);
 
     m_robotDrive = new DifferentialDrive(m_leftLeadMotor, m_rightLeadMotor);
 
@@ -137,17 +156,20 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    // Arcade Drive, which controls a forward and turn speed
-    // Arcade Drive - Logitech F310 Controller in D Switch Mode
-    // m_robotDrive.arcadeDrive(-js_Driver.getY(), -js_Driver.getZ());
-    m_robotDrive.arcadeDrive(
-      -js_Driver.getRawAxis(1),
-      -js_Driver.getRawAxis(2)
-    );
-    // Arcade Drive - Logitech F310 Controller in X Switch Mode
-    // m_robotDrive.arcadeDrive(js_Driver.getRawAxis(1), js_Driver.getRawAxis(4));
-    // Arcade Drive - XBox Controller
-    // m_robotDrive.arcadeDrive(js_Driver.getRawAxis(1), js_Driver.getRawAxis(4));
+    /* get gamepad stick values */
+    double forw = -1 * js_Driver.getRawAxis(1);/* positive is forward */
+    double turn = -1 * js_Driver.getRawAxis(2);/* positive is right */
+
+    /* deadband gamepad 10% */
+    if (Math.abs(forw) < 0.10) {
+      forw = 0;
+    }
+    if (Math.abs(turn) < 0.10) {
+      turn = 0;
+    }
+
+    /* drive robot */
+    m_robotDrive.arcadeDrive(forw, turn);
   }
 
   /** This function is called once when the robot is disabled. */
@@ -160,22 +182,7 @@ public class Robot extends TimedRobot {
 
   /** This function is called once when test mode is enabled. */
   @Override
-  public void testInit() {
-    /**
-     * The RestoreFactoryDefaults method can be used to reset the configuration parameters
-     * in the SPARK MAX to their factory default state. If no argument is passed, these
-     * parameters will not persist between power cycles
-     */
-    m_leftLeadMotor.restoreFactoryDefaults();
-    m_leftFollowMotor.restoreFactoryDefaults();
-    m_rightLeadMotor.restoreFactoryDefaults();
-    m_rightFollowMotor.restoreFactoryDefaults();
-
-    m_leftFollowMotor.setInverted(true);
-    m_leftLeadMotor.setInverted(true);
-    m_rightLeadMotor.setInverted(false);
-    m_rightLeadMotor.setInverted(false);
-  }
+  public void testInit() {}
 
   /** This function is called periodically during test mode. */
   @Override
